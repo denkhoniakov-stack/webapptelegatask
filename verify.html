@@ -1,90 +1,83 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Проверка устройства</title>
+    <title>Device Verification</title>
+    <!-- 1. Скрипт для работы с Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- 2. Скрипт для сбора отпечатка устройства -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fingerprintjs2/2.1.0/fingerprint2.min.js"></script>
     <style>
-        :root { --tg-theme-bg-color: #ffffff; --tg-theme-text-color: #000000; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); text-align: center; }
-        .container { padding: 20px; }
-        #status { font-size: 1.1em; font-weight: 500; margin-top: 15px; min-height: 40px;}
-        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); border-top: 4px solid var(--tg-theme-text-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2 id="title">Проверка безопасности</h2>
-        <p id="subtitle">Пожалуйста, подождите, мы проверяем ваше устройство...</p>
-        <div class="spinner" id="spinner"></div>
-        <p id="status"></p>
-    </div>
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script type="module">
-        // ВАЖНО: Замените URL на ваш из config.py (SITE_URL + SAMOZANYATYE_PAYMENT_CALLBACK_PATH, но с новым путем)
-        const API_ENDPOINT = 'https://89.248.192.229:8443/api/v1/submit_fingerprint';
-        
-        // Динамический импорт FingerprintJS
-        import('https://openfpcdn.io/fingerprintjs/v4')
-            .then(FingerprintJS => FingerprintJS.load())
-            .then(fp => fp.get())
-            .then(result => {
-                const visitorId = result.visitorId;
-                const tg = window.Telegram.WebApp;
-                tg.ready();
+    <p>Идет проверка вашего устройства...</p>
 
-                // Извлекаем токен из URL
-                const urlParams = new URLSearchParams(tg.initDataUnsafe.start_param ? '?' + tg.initDataUnsafe.start_param : window.location.search);
-                const token = urlParams.get('token');
+    <script>
+        // Убедимся, что приложение готово к работе
+        Telegram.WebApp.ready();
 
-                if (!token) {
-                    showError('Ошибка: Токен проверки не найден.');
-                    return;
-                }
-
-                fetch(API_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: token, fingerprint: visitorId })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        showSuccess(data.message);
-                    } else {
-                        showError(data.message);
-                    }
-                })
-                .catch(() => showError('Ошибка сети при связи с сервером.'));
-            })
-            .catch(() => showError('Не удалось загрузить модуль проверки.'));
-
-        function showError(message) {
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('subtitle').style.display = 'none';
-            document.getElementById('title').textContent = 'Ошибка';
-            document.getElementById('status').textContent = message;
-            document.getElementById('status').style.color = 'red';
-            closeAfterDelay();
+        // Функция для получения токена из URL
+        function getTokenFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('token');
         }
 
-        function showSuccess(message) {
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('subtitle').style.display = 'none';
-            document.getElementById('title').textContent = 'Успешно!';
-            document.getElementById('status').textContent = message;
-            document.getElementById('status').style.color = 'green';
-            closeAfterDelay();
-        }
-
-        function closeAfterDelay() {
-            if (window.Telegram.WebApp.isClosingConfirmationEnabled) {
-                window.Telegram.WebApp.disableClosingConfirmation();
+        // Асинхронная функция для сбора отпечатка и отправки данных
+        async function runVerification() {
+            const token = getTokenFromUrl();
+            if (!token) {
+                Telegram.WebApp.showAlert("Ошибка: токен проверки не найден.");
+                Telegram.WebApp.close(); // Закрываем, если нет токена
+                return;
             }
-            setTimeout(() => window.Telegram.WebApp.close(), 3000);
+
+            // Получаем отпечаток устройства
+            Fingerprint2.get(async function (components) {
+                const values = components.map(function (component) { return component.value });
+                const fingerprint = Fingerprint2.x64hash128(values.join(''), 31);
+
+                // Готовим данные для отправки боту
+                const dataToSend = {
+                    token: token,
+                    fingerprint: fingerprint
+                };
+
+                try {
+                    // Отправляем данные на ваш сервер, где запущен бот
+                    const response = await fetch('/api/v1/submit_fingerprint', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(dataToSend)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        // Если все успешно, показываем сообщение и закрываемся
+                        Telegram.WebApp.showAlert(result.message || 'Проверка пройдена!');
+                    } else {
+                        // Если сервер вернул ошибку, показываем ее
+                        Telegram.WebApp.showAlert(result.message || 'Произошла ошибка проверки.');
+                    }
+                } catch (error) {
+                    // В случае сетевой или другой ошибки
+                    Telegram.WebApp.showAlert('Не удалось связаться с сервером для проверки.');
+                } finally {
+                    // В любом случае закрываем окно Web App после завершения
+                    Telegram.WebApp.close();
+                }
+            });
         }
+
+        // Запускаем проверку сразу при открытии страницы
+        runVerification();
     </script>
+
 </body>
 </html>
