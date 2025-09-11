@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка устройства</title>
+    <style>
+        :root { --tg-theme-bg-color: #ffffff; --tg-theme-text-color: #000000; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); text-align: center; }
+        .container { padding: 20px; }
+        #status { font-size: 1.1em; font-weight: 500; margin-top: 15px; min-height: 40px;}
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); border-top: 4px solid var(--tg-theme-text-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 id="title">Проверка безопасности</h2>
+        <p id="subtitle">Пожалуйста, подождите, мы проверяем ваше устройство...</p>
+        <div class="spinner" id="spinner"></div>
+        <p id="status"></p>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script type="module">
+        // ВАЖНО: Замените URL на ваш из config.py (SITE_URL + SAMOZANYATYE_PAYMENT_CALLBACK_PATH, но с новым путем)
+        const API_ENDPOINT = 'https://89.248.192.229:8443/api/v1/submit_fingerprint';
+        
+        // Динамический импорт FingerprintJS
+        import('https://openfpcdn.io/fingerprintjs/v4')
+            .then(FingerprintJS => FingerprintJS.load())
+            .then(fp => fp.get())
+            .then(result => {
+                const visitorId = result.visitorId;
+                const tg = window.Telegram.WebApp;
+                tg.ready();
+
+                // Извлекаем токен из URL
+                const urlParams = new URLSearchParams(tg.initDataUnsafe.start_param ? '?' + tg.initDataUnsafe.start_param : window.location.search);
+                const token = urlParams.get('token');
+
+                if (!token) {
+                    showError('Ошибка: Токен проверки не найден.');
+                    return;
+                }
+
+                fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token, fingerprint: visitorId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showSuccess(data.message);
+                    } else {
+                        showError(data.message);
+                    }
+                })
+                .catch(() => showError('Ошибка сети при связи с сервером.'));
+            })
+            .catch(() => showError('Не удалось загрузить модуль проверки.'));
+
+        function showError(message) {
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('subtitle').style.display = 'none';
+            document.getElementById('title').textContent = 'Ошибка';
+            document.getElementById('status').textContent = message;
+            document.getElementById('status').style.color = 'red';
+            closeAfterDelay();
+        }
+
+        function showSuccess(message) {
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('subtitle').style.display = 'none';
+            document.getElementById('title').textContent = 'Успешно!';
+            document.getElementById('status').textContent = message;
+            document.getElementById('status').style.color = 'green';
+            closeAfterDelay();
+        }
+
+        function closeAfterDelay() {
+            if (window.Telegram.WebApp.isClosingConfirmationEnabled) {
+                window.Telegram.WebApp.disableClosingConfirmation();
+            }
+            setTimeout(() => window.Telegram.WebApp.close(), 3000);
+        }
+    </script>
+</body>
+</html>
