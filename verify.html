@@ -3,90 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device Verification</title>
+    <title>Test Verification</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fingerprintjs2/2.1.0/fingerprint2.min.js"></script>
     <style>
         body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #212121; color: white; }
     </style>
 </head>
 <body>
 
-    <p id="status">Инициализация...</p>
+    <p id="status">Тестовая проверка...</p>
 
     <script>
-        // Немедленно сообщаем, что приложение готово
         Telegram.WebApp.ready();
 
-        // Функция для получения токена
-        function getTokenFromUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('token');
-        }
-
-        // Главная асинхронная функция
-        async function runVerification() {
+        async function runTestVerification() {
             try {
-                document.getElementById('status').textContent = 'Получаем токен...';
-                const token = getTokenFromUrl();
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+
                 if (!token) {
-                    throw new Error("Токен проверки не найден.");
+                    throw new Error("Тестовая ошибка: токен не найден.");
                 }
 
-                document.getElementById('status').textContent = 'Собираем отпечаток устройства...';
-                console.log("Starting fingerprint collection...");
-
-                // Оборачиваем старую callback-функцию в Promise для async/await
-                const components = await new Promise((resolve, reject) => {
-                    Fingerprint2.get(function(components) {
-                        resolve(components);
-                    });
-                });
+                // Используем статичный тестовый отпечаток
+                const testFingerprint = "test_fingerprint_12345";
                 
-                console.log("Fingerprint components collected.");
-                const values = components.map(component => component.value);
-                const fingerprint = Fingerprint2.x64hash128(values.join(''), 31);
-                console.log("Fingerprint hash:", fingerprint);
-
                 const dataToSend = {
                     token: token,
-                    fingerprint: fingerprint
+                    fingerprint: testFingerprint
                 };
 
-                document.getElementById('status').textContent = 'Отправляем данные на сервер...';
-                console.log("Sending data to server:", dataToSend);
+                console.log("Отправка тестовых данных:", dataToSend);
                 
                 const response = await fetch('https://89.248.192.229:8443/api/v1/submit_fingerprint', {
-
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(dataToSend)
                 });
-                
-                console.log("Server response status:", response.status);
+
+                console.log("Статус ответа от сервера:", response.status);
                 const result = await response.json();
-                console.log("Server response body:", result);
+                console.log("Тело ответа от сервера:", result);
 
                 if (!response.ok) {
-                    throw new Error(result.message || 'Ошибка сервера.');
+                    throw new Error(result.message || 'Ошибка сервера при тесте.');
                 }
                 
-                // Показываем сообщение об успехе
-                Telegram.WebApp.showAlert(result.message || 'Проверка пройдена!');
+                Telegram.WebApp.showAlert(result.message || 'Тест пройден!');
 
             } catch (error) {
-                console.error('Verification failed:', error);
-                Telegram.WebApp.showAlert(error.message || 'Произошла непредвиденная ошибка.');
+                console.error('Тестовая проверка не удалась:', error);
+                Telegram.WebApp.showAlert('Тестовая проверка не удалась: ' + error.message);
             } finally {
-                // Закрываем окно в любом случае
-                console.log("Closing Web App.");
+                console.log("Закрытие Web App после теста.");
                 Telegram.WebApp.close();
             }
         }
 
-        // Запускаем проверку после короткой задержки, чтобы все скрипты успели загрузиться
-        setTimeout(runVerification, 100);
-
+        setTimeout(runTestVerification, 500);
     </script>
 
 </body>
