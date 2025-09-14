@@ -6,57 +6,53 @@
     <title>Verification</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* Стили, чтобы сделать фон прозрачным и убрать весь текст */
         body { 
-            font-family: sans-serif;
-            display: flex; align-items: center; justify-content: center;
-            height: 100vh; margin: 0;
-            background-color: var(--tg-theme-bg-color, #ffffff); 
-            color: var(--tg-theme-text-color, #000000); 
+            background-color: transparent;
+            margin: 0;
+            padding: 0;
         }
-        #status { font-size: 18px; }
+        #status {
+            display: none; /* Полностью скрываем текст "Проверка..." */
+        }
     </style>
 </head>
 <body>
 
-    <p id="status">Получение отпечатка устройства...</p>
-
-    <!-- Подключаем библиотеку FingerprintJS -->
-    <script
-        src="https://fpjscdn.net/v3/rz2u9kGuO3VL8D4321P6"
-        onload="runVerification()">
-    </script>
+    <p id="status">Проверка...</p>
 
     <script>
         async function runVerification() {
-            const statusEl = document.getElementById('status');
-            
             try {
                 // 1. Инициализируем Web App
                 Telegram.WebApp.ready();
 
-                // 2. Получаем уникальный отпечаток устройства
-                const fp = await FingerprintJS.load({
-                    apiKey: "rz2u9kGuO3VL8D4321P6" // Это публичный ключ
-                });
-                const result = await fp.get();
-                const visitorId = result.visitorId; // Уникальный ID устройства/браузера
-                
-                statusEl.textContent = 'Отправка данных на сервер...';
-
-                // 3. Получаем остальные данные из URL
+                // 2. Получаем все данные из URL
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
                 const chatId = urlParams.get('cid');
                 const messageId = urlParams.get('mid');
 
                 if (!token || !chatId || !messageId) {
-                    throw new Error("Неполные данные в URL для проверки.");
+                    // Используем alert для критических ошибок, так как он работает даже если UI не виден
+                    alert("Критическая ошибка: неполные данные в URL.");
+                    Telegram.WebApp.close();
+                    return;
                 }
+                
+                // 3. МГНОВЕННО генерируем простой, но достаточно уникальный отпечаток
+                const fastFingerprint = [
+                    navigator.userAgent,
+                    navigator.language,
+                    screen.height,
+                    screen.width,
+                    new Date().getTimezoneOffset()
+                ].join('-');
 
-                // 4. Формируем и отправляем все данные на сервер
+                // 4. Формируем и отправляем данные
                 const dataToSend = {
                     token: token,
-                    fingerprint: visitorId, // Отправляем реальный отпечаток
+                    fingerprint: fastFingerprint, // Используем быстрый отпечаток
                     chat_id: chatId,
                     message_id: messageId
                 };
@@ -72,15 +68,18 @@
                     throw new Error(responseData.message || 'Ошибка сервера.');
                 }
                 
+                // Показываем результат и сразу закрываемся
                 Telegram.WebApp.showAlert(responseData.message || 'Проверка пройдена!');
 
             } catch (error) {
-                statusEl.textContent = 'Ошибка!';
                 Telegram.WebApp.showAlert('Ошибка: ' + error.message);
             } finally {
                 Telegram.WebApp.close();
             }
         }
+
+        // Запускаем проверку сразу же
+        runVerification();
     </script>
 
 </body>
