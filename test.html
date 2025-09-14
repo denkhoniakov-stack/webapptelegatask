@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Telegram</title>
+    <!-- Подключаем официальный скрипт Telegram -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            background-color: var(--tg-theme-bg-color, #212121);
+            color: var(--tg-theme-text-color, #ffffff);
+            font-family: sans-serif;
+            text-align: center;
+            padding-top: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Тест Web App</h1>
+    <p id="status">Инициализация...</p>
+    <button id="closeButton" style="display: none;">Закрыть</button>
+
+    <script>
+        try {
+            // Сообщаем Telegram, что приложение готово
+            Telegram.WebApp.ready();
+            
+            // Показываем данные пользователя, если они есть
+            const user = Telegram.WebApp.initDataUnsafe.user;
+            if (user && user.first_name) {
+                document.getElementById('status').innerText = `Привет, ${user.first_name}! Web App работает.`;
+            } else {
+                document.getElementById('status').innerText = 'Web App работает, но данные пользователя не получены.';
+            }
+
+            // Показываем кнопку закрытия
+            const closeButton = document.getElementById('closeButton');
+            closeButton.style.display = 'block';
+            closeButton.onclick = function() {
+                // Закрываем Web App по клику
+                Telegram.WebApp.close();
+            };
+
+        } catch (e) {
+            // Если что-то пошло не так, выводим ошибку
+            document.getElementById('status').innerText = 'Ошибка инициализации: ' + e.message;
+        }
+    </script>
+
+</body>
+</html>
