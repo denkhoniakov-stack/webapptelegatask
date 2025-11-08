@@ -72,50 +72,10 @@
                 //Telegram.WebApp.showAlert(responseData.message || 'Проверка пройдена!');
 
             } catch (error) {
-                console.error("Verification error:", error);
-    
-                let userMessage = "⚠️ Не удалось проверить устройство\n\n";
-    
-    // Определяем причину ошибки и даём понятные инструкции
-                if (!navigator.onLine) {
-        // Нет интернета
-                      userMessage += "❌ Отсутствует подключение к интернету\n\n";
-                      userMessage += "Что делать:\n";
-                      userMessage += "1. Проверьте Wi-Fi или мобильный интернет\n";
-                      userMessage += "2. Попробуйте снова после подключения";
-                } else if (error.message === "Failed to fetch" || error.name === "TypeError") {
-        // Проблема с сервером или сетью
-                       userMessage += "Возможные причины:\n";
-                       userMessage += "• Нестабильное соединение\n";
-                       userMessage += "• Временные проблемы на сервере\n";
-                       userMessage += "• Блокировка провайдером\n\n";
-                       userMessage += "Что делать:\n";
-                       userMessage += "1. Проверьте качество интернет-соединения\n";
-                       userMessage += "2. Попробуйте ещё раз через 1-2 минуты\n";
-                       userMessage += "3. Если используете VPN — попробуйте отключить\n";
-                       userMessage += "4. Обратитесь в поддержку, если ошибка повторяется";
-                } else if (error.message && error.message.includes("timeout")) {
-        // Таймаут
-                      userMessage += "⏱️ Превышено время ожидания ответа\n\n";
-                      userMessage += "Что делать:\n";
-                      userMessage += "1. Проверьте скорость интернета\n";
-                      userMessage += "2. Попробуйте ещё раз\n";
-                      userMessage += "3. Используйте более стабильное соединение";
-                } else {
-        // Неизвестная ошибка
-                       userMessage += "Технические неполадки при проверке.\n\n";
-                       userMessage += "Что делать:\n";
-                       userMessage += "1. Попробуйте ещё раз\n";
-                       userMessage += "2. Перезапустите Telegram\n";
-                       userMessage += "3. Обратитесь в поддержку с описанием проблемы";
-                }
-    
-                Telegram.WebApp.showAlert(userMessage);
-
+                Telegram.WebApp.showAlert('Ошибка: ' + error.message);
             } finally {
-                    Telegram.WebApp.close();
+                Telegram.WebApp.close();
             }
-
         }
 
         // Запускаем проверку сразу же
