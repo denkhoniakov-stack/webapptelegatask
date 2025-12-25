@@ -57,7 +57,7 @@
                     message_id: messageId
                 };
 
-                const response = await fetch('https://bot.telegatask.ru:8443/api/v1/submit_fingerprint', {
+                const response = await fetch('https://bot.telegatask.ru/api/v1/submit_fingerprint', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(dataToSend)
