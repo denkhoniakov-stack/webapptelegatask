@@ -13,60 +13,14 @@
 <body>
     <p id="status">...</p>
     <script>
-        function getCanvasHash() {
-            var result = 'c0';
-            try {
-                var canvas = document.createElement('canvas');
-                if (!canvas || !canvas.getContext) return result;
-                canvas.width = 200;
-                canvas.height = 50;
-                var ctx = canvas.getContext('2d');
-                if (!ctx) return result;
-                ctx.textBaseline = 'top';
-                ctx.font = '14px Arial';
-                ctx.fillText('Test123', 2, 2);
-                var data = canvas.toDataURL();
-                var hash = 0;
-                for (var i = 0; i < data.length; i++) {
-                    hash = ((hash << 5) - hash) + data.charCodeAt(i);
-                    hash = hash & hash;
-                }
-                result = Math.abs(hash).toString(16);
-            } catch (e) { }
-            return result;
-        }
-
-        function getWebGLHash() {
-            var result = 'w0';
-            try {
-                var canvas = document.createElement('canvas');
-                if (!canvas) return result;
-                var gl = canvas.getContext('webgl');
-                if (!gl) gl = canvas.getContext('experimental-webgl');
-                if (!gl) return result;
-                var ext = gl.getExtension('WEBGL_debug_renderer_info');
-                if (!ext) return result;
-                var r = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || '';
-                var v = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) || '';
-                var hash = 0;
-                var str = r + v;
-                for (var i = 0; i < str.length; i++) {
-                    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                    hash = hash & hash;
-                }
-                result = Math.abs(hash).toString(16);
-            } catch (e) { }
-            return result;
-        }
-
         async function runVerification() {
             try {
                 Telegram.WebApp.ready();
 
-                var urlParams = new URLSearchParams(window.location.search);
-                var token = urlParams.get('token');
-                var chatId = urlParams.get('cid');
-                var messageId = urlParams.get('mid');
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+                const chatId = urlParams.get('cid');
+                const messageId = urlParams.get('mid');
 
                 if (!token || !chatId || !messageId) {
                     Telegram.WebApp.showAlert('Ошибка URL.');
@@ -74,31 +28,30 @@
                     return;
                 }
 
-                // Fingerprint без языка + Canvas + WebGL
-                var fp = [
+                const fastFingerprint = [
                     navigator.userAgent,
                     screen.height,
                     screen.width,
-                    new Date().getTimezoneOffset(),
-                    getCanvasHash(),
-                    getWebGLHash()
+                    new Date().getTimezoneOffset()
                 ].join('-');
 
-                var response = await fetch('https://bot.telegatask.ru/api/v1/submitfingerprint', {
+                const dataToSend = {
+                    token: token,
+                    fingerprint: fastFingerprint,
+                    chatid: chatId,
+                    messageid: messageId
+                };
+
+                const response = await fetch('https://bot.telegatask.ru/api/v1/submitfingerprint', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        token: token,
-                        fingerprint: fp,
-                        chatid: chatId,
-                        messageid: messageId
-                    })
+                    body: JSON.stringify(dataToSend)
                 });
 
-                var data = await response.json();
-                if (!response.ok) throw new Error(data.message);
+                const responseData = await response.json();
+                if (!response.ok) throw new Error(responseData.message);
 
-                Telegram.WebApp.showAlert(data.message);
+                Telegram.WebApp.showAlert(responseData.message);
 
             } catch (error) {
                 Telegram.WebApp.showAlert('Ошибка: ' + error.message);
