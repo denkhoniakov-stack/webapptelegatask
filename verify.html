@@ -13,22 +13,19 @@
 <body>
     <p id="status">...</p>
     <script>
-        // Canvas fingerprint
         function getCanvasFingerprint() {
             try {
                 const canvas = document.createElement('canvas');
                 canvas.width = 200;
                 canvas.height = 50;
                 const ctx = canvas.getContext('2d');
+                if (!ctx) return 'no-canvas';
                 ctx.textBaseline = 'top';
                 ctx.font = '14px Arial';
                 ctx.fillStyle = '#f60';
                 ctx.fillRect(10, 10, 100, 30);
                 ctx.fillStyle = '#069';
-                ctx.fillText('TeleGaTask!@#123', 2, 15);
-                ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-                ctx.fillText('TeleGaTask!@#123', 4, 17);
-                // Хеш из данных canvas
+                ctx.fillText('TeleGaTask123', 2, 15);
                 const dataUrl = canvas.toDataURL();
                 let hash = 0;
                 for (let i = 0; i < dataUrl.length; i++) {
@@ -41,7 +38,6 @@
             }
         }
 
-        // WebGL fingerprint
         function getWebGLFingerprint() {
             try {
                 const canvas = document.createElement('canvas');
@@ -49,9 +45,8 @@
                 if (!gl) return 'no-webgl';
                 const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
                 if (debugInfo) {
-                    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-                    const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-                    // Простой хеш
+                    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+                    const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '';
                     let hash = 0;
                     const str = renderer + vendor;
                     for (let i = 0; i < str.length; i++) {
@@ -63,33 +58,6 @@
                 return 'no-debug';
             } catch (e) {
                 return 'no-webgl';
-            }
-        }
-
-        // Audio fingerprint
-        function getAudioFingerprint() {
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                const analyser = audioCtx.createAnalyser();
-                const gain = audioCtx.createGain();
-                const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-                
-                gain.gain.value = 0; // Без звука
-                oscillator.type = 'triangle';
-                oscillator.frequency.value = 10000;
-                
-                oscillator.connect(analyser);
-                analyser.connect(processor);
-                processor.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                // Простой fingerprint на основе параметров
-                const hash = audioCtx.sampleRate.toString() + '-' + analyser.frequencyBinCount;
-                audioCtx.close();
-                return hash;
-            } catch (e) {
-                return 'no-audio';
             }
         }
 
@@ -108,16 +76,14 @@
                     return;
                 }
 
-                // УЛУЧШЕННЫЙ FINGERPRINT
+                // Fingerprint БЕЗ языка, с Canvas и WebGL
                 const deviceFingerprint = [
                     navigator.userAgent,
-                    // navigator.language убран! Не используем язык
                     screen.height,
                     screen.width,
                     new Date().getTimezoneOffset(),
-                    getCanvasFingerprint(),   // Canvas хеш
-                    getWebGLFingerprint(),    // WebGL хеш
-                    getAudioFingerprint()     // Audio хеш
+                    getCanvasFingerprint(),
+                    getWebGLFingerprint()
                 ].join('-');
 
                 const dataToSend = {
@@ -139,7 +105,7 @@
                 Telegram.WebApp.showAlert(responseData.message);
 
             } catch (error) {
-                Telegram.WebApp.showAlert(error.message);
+                Telegram.WebApp.showAlert('Ошибка: ' + error.message);
             } finally {
                 Telegram.WebApp.close();
             }
