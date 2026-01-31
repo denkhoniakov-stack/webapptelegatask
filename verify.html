@@ -6,14 +6,13 @@
     <title>Verification</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Стили, чтобы сделать фон прозрачным и убрать весь текст */
         body { 
             background-color: transparent;
             margin: 0;
             padding: 0;
         }
         #status {
-            display: none; /* Полностью скрываем текст "Проверка..." */
+            display: none;
         }
     </style>
 </head>
@@ -22,37 +21,163 @@
     <p id="status">Проверка...</p>
 
     <script>
+        // Canvas Fingerprint
+        function getCanvasFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 200;
+                canvas.height = 50;
+                const ctx = canvas.getContext('2d');
+
+                if (!ctx) return 'no_canvas';
+
+                // Градиент
+                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
+                gradient.addColorStop(0, '#ff6b6b');
+                gradient.addColorStop(1, '#4ecdc4');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 200, 50);
+
+                // Круг
+                ctx.beginPath();
+                ctx.arc(50, 25, 20, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+
+                // Текст
+                ctx.font = '18px Arial';
+                ctx.fillStyle = '#000';
+                ctx.fillText('TG2026', 80, 30);
+
+                // Кривая
+                ctx.beginPath();
+                ctx.moveTo(10, 40);
+                ctx.bezierCurveTo(50, 10, 150, 40, 190, 10);
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                return canvas.toDataURL().slice(-50);
+            } catch (e) {
+                return 'canvas_error';
+            }
+        }
+
+        // WebGL Fingerprint (с защитой для мобильных)
+        function getWebGLFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                
+                if (!gl) return 'no_webgl';
+
+                let vendor = 'unknown';
+                let renderer = 'unknown';
+
+                // Пробуем получить данные GPU
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || 'hidden';
+                    renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || 'hidden';
+                }
+
+                // Эти параметры работают ВСЕГДА, даже на iOS
+                const params = [
+                    vendor,
+                    renderer,
+                    gl.getParameter(gl.MAX_TEXTURE_SIZE),
+                    gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
+                    gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
+                    gl.getParameter(gl.MAX_VARYING_VECTORS),
+                    gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS),
+                    gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS),
+                    gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)
+                ];
+
+                return params.join('|');
+            } catch (e) {
+                return 'webgl_error';
+            }
+        }
+
+        // Собираем fingerprint
+        const fingerprint = [
+            navigator.userAgent,
+            screen.width + 'x' + screen.height,
+            screen.colorDepth || 24,
+            new Date().getTimezoneOffset(),
+            navigator.hardwareConcurrency || 0,  // 0 если iOS скрывает
+            navigator.maxTouchPoints || 0,
+            navigator.platform || 'unknown',     // Добавили платформу
+            getCanvasFingerprint(),
+            getWebGLFingerprint()
+        ].join('||');
+
+        // WebGL Fingerprint
+        function getWebGLFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                
+                if (!gl) return 'no_webgl';
+
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                
+                let vendor = 'unknown';
+                let renderer = 'unknown';
+                
+                if (debugInfo) {
+                    vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+                    renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                }
+
+                // Собираем параметры GPU
+                const params = [
+                    vendor,
+                    renderer,
+                    gl.getParameter(gl.MAX_TEXTURE_SIZE),
+                    gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
+                    gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
+                    gl.getParameter(gl.MAX_VARYING_VECTORS),
+                    gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS)
+                ];
+
+                return params.join('|');
+            } catch (e) {
+                return 'webgl_error';
+            }
+        }
+
         async function runVerification() {
             try {
-                // 1. Инициализируем Web App
                 Telegram.WebApp.ready();
 
-                // 2. Получаем все данные из URL
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
                 const chatId = urlParams.get('cid');
                 const messageId = urlParams.get('mid');
 
                 if (!token || !chatId || !messageId) {
-                    // Используем alert для критических ошибок, так как он работает даже если UI не виден
                     alert("Критическая ошибка: неполные данные в URL.");
                     Telegram.WebApp.close();
                     return;
                 }
                 
-                // 3. МГНОВЕННО генерируем простой, но достаточно уникальный отпечаток
-                const fastFingerprint = [
+                // Собираем fingerprint БЕЗ языка (language убран!)
+                const fingerprint = [
                     navigator.userAgent,
-                    navigator.language,
-                    screen.height,
-                    screen.width,
-                    new Date().getTimezoneOffset()
-                ].join('-');
+                    screen.width + 'x' + screen.height,
+                    screen.colorDepth,
+                    new Date().getTimezoneOffset(),
+                    navigator.hardwareConcurrency || 0,
+                    navigator.maxTouchPoints || 0,
+                    getCanvasFingerprint(),
+                    getWebGLFingerprint()
+                ].join('||');
 
-                // 4. Формируем и отправляем данные
                 const dataToSend = {
                     token: token,
-                    fingerprint: fastFingerprint, // Используем быстрый отпечаток
+                    fingerprint: fingerprint,
                     chat_id: chatId,
                     message_id: messageId
                 };
@@ -67,9 +192,6 @@
                 if (!response.ok) {
                     throw new Error(responseData.message || 'Ошибка сервера.');
                 }
-                
-                // Показываем результат и сразу закрываемся
-                //Telegram.WebApp.showAlert(responseData.message || 'Проверка пройдена!');
 
             } catch (error) {
                 Telegram.WebApp.showAlert('Ошибка: ' + error.message);
@@ -78,7 +200,6 @@
             }
         }
 
-        // Запускаем проверку сразу же
         runVerification();
     </script>
 
